@@ -1,6 +1,27 @@
 
 const pool = require("../config/db");
 
+const isExamplePlaceholderUrl = (rawUrl) => {
+    const trimmed = String(rawUrl || "").trim();
+    if (/^https?:\/\/([^/]+\.)?example\.com(\/|$|\?|#)/i.test(trimmed)) {
+        return true;
+    }
+    return false;
+};
+
+const isValidResourceUrl = (rawUrl) => {
+    const trimmed = String(rawUrl || "").trim();
+    if (trimmed.startsWith("/pdfs/") && trimmed.toLowerCase().endsWith(".pdf")) {
+        return true;
+    }
+    try {
+        const parsed = new URL(trimmed);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+        return false;
+    }
+};
+
 // CREATE RESOURCE (Faculty only)
 const createResource = async (req, res) => {
     try {
@@ -10,6 +31,22 @@ const createResource = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Title, subject and resource URL are required"
+            });
+        }
+
+        const trimmedUrl = resource_url.trim();
+
+        if (isExamplePlaceholderUrl(trimmedUrl)) {
+            return res.status(400).json({
+                success: false,
+                message: "Placeholder example.com URLs are not allowed. Please provide a real lecture video, website, or PDF link."
+            });
+        }
+
+        if (!isValidResourceUrl(trimmedUrl)) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide a valid http(s) URL or /pdfs/ path"
             });
         }
 
@@ -23,7 +60,7 @@ const createResource = async (req, res) => {
                 title.trim(),
                 description || null,
                 subject.trim(),
-                resource_url.trim()
+                trimmedUrl
             ]
         );
 
